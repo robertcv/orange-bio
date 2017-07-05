@@ -138,12 +138,15 @@ class PPIDatabase(object):
         """
         raise NotImplementedError
 
-    def extract_network(self, ids):
+    def extract_network(self, taxid):
         """
+        Generate an Orange network graph from links in database. Use `taxid`
+        to limit the network to a single organism.
         """
-        from Orange import network
+        from orangecontrib import network
 
         graph = network.Graph()
+        ids = self.ids(taxid=taxid)
         for id in ids:
             graph.add_node(id, synonyms=",".join(self.synonyms(id)))
 
