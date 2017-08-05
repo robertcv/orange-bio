@@ -331,6 +331,55 @@ class BioGRID(PPIDatabase):
 
         return Table(domain, data)
 
+    def links_table(self, taxid=None):
+        """
+        Return a Orange.base.Table of all links data.
+        If `taxid` is not None limit the results to proteins from this organism
+        only.
+
+        """
+        if taxid is None:
+            cur = self.db.execute("""\
+                        select *
+                        from links""")
+        else:
+            cur = self.db.execute("""\
+                        select *
+                        from links
+                        where biogrid_id_interactor_a in 
+                        (select biogrid_id_interactor from proteins where organism_interactor=?)
+                        and biogrid_id_interactor_b in 
+                        (select biogrid_id_interactor from proteins where organism_interactor=?)
+                        """, (taxid, taxid))
+
+        data = cur.fetchall()
+
+        data = [[int(d[0]), int(d[1]), int(d[2]), str(d[3]), str(d[4]), str(d[5]), int(d[6]), str(d[7]), str(d[8]),
+                 str(d[9]), str(d[10]), str(d[11]), str(d[12]), str(d[13])] for d in data]
+        data.sort()
+
+        header_values = [sorted(list({d[i] for d in data})) for i in [3, 4, 5, 7, 8, 9, 10, 11, 12, 13]]
+
+        values = [
+            ContinuousVariable(name='BioGRID interaction id', number_of_decimals=0),
+            ContinuousVariable(name='BioGRID interactor a id', number_of_decimals=0),
+            ContinuousVariable(name='BioGRID interactor b id', number_of_decimals=0),
+            DiscreteVariable(name='Experimental system', values=header_values[0]),
+            DiscreteVariable(name='Experimental type', values=header_values[1]),
+            DiscreteVariable(name='Author', values=header_values[2]),
+            ContinuousVariable(name='Pubmed id', number_of_decimals=0),
+            DiscreteVariable(name='Throughput', values=header_values[3]),
+            DiscreteVariable(name='Score', values=header_values[4]),
+            DiscreteVariable(name='Modification', values=header_values[5]),
+            DiscreteVariable(name='Phenotypes', values=header_values[6]),
+            DiscreteVariable(name='Qualifications', values=header_values[7]),
+            DiscreteVariable(name='Tags', values=header_values[8]),
+            DiscreteVariable(name='Source database', values=header_values[9]),
+        ]
+        domain = Domain(values)
+
+        return Table(domain, data)
+
     def synonyms(self, id):
         """
         Return a list of synonyms for primary `id`.

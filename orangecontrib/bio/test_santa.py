@@ -5,6 +5,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 g = nx.Graph()
+g.nodes_iter()
 
 nodes = [i for i in range(1,13)]
 edges = [(1,2), (1,3), (1,4), (2,3), (2,4), (3,4), (1,5), (5,6), (2,7), (7,8), (4,9), (9,10), (3,11), (11,12)]

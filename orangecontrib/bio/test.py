@@ -5,10 +5,16 @@ import matplotlib.pyplot as plt
 
 biogrid = BioGRID()
 org = list(biogrid.organisms())
-print(org)
+#print(org)
 
-proteins_table = biogrid.proteins_table(org[0])
-print(proteins_table)
+links_table = biogrid.proteins_table(org[2])
+
+
+a = links_table[links_table.domain[0]]
+print(a)
+
+#proteins_table = biogrid.proteins_table(org[0])
+#print(proteins_table)
 
 # heders = [h[0] for h in proteins_table.description]
 # print(heders)
@@ -34,6 +40,7 @@ print(proteins_table)
 # print(edges)
 #
 # network = biogrid.extract_network(org[0])
+# print(network.nodes_iter())
 # test_santa = SANTA(network, {ids[i]: 1 for i in range(50)})
 # k_net, auc_k_net = test_santa.k_net()
 # print(k_net)

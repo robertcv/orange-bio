@@ -33,6 +33,7 @@ class OWBioGRID(OWWidget):
     class Outputs:
         graph = Output("Network", Graph)
         table = Output("Data", Table)
+        interactions = Output("Interactions Data", Table)
 
     def __init__(self):
         super().__init__()
@@ -44,6 +45,7 @@ class OWBioGRID(OWWidget):
         self.network = None
 
         self.proteins = []
+        self.interactions = []
 
         box1 = gui.widgetBox(self.controlArea, "Choose an organism")
         gui.comboBox(box1, self, "organism_id",
@@ -54,15 +56,22 @@ class OWBioGRID(OWWidget):
         self.info = gui.widgetLabel(box2, 'No organism yet chosen.')
 
     def update(self):
-
+        self.progressBarInit()
         self.proteins = self.biogrid.proteins_table(taxid=self.organisms[self.organism_id])
         self.Outputs.table.send(self.proteins)
+        self.progressBarSet(33)
+
+        self.interactions = self.biogrid.links_table(taxid=self.organisms[self.organism_id])
+        self.Outputs.interactions.send(self.interactions)
+        self.progressBarSet(66)
 
         self.network = self.biogrid.extract_network(self.organisms[self.organism_id])
         self.info.setText('number of nodes: {}\nnumber of edges: {}'.format(
             self.network.number_of_nodes(),
             self.network.number_of_edges()))
         self.Outputs.graph.send(self.network)
+        self.progressBarFinished()
+
 
 
 
