@@ -15,6 +15,9 @@ import errno
 import posixpath
 import textwrap
 
+from Orange.base import Table
+from Orange.data.domain import Domain
+from Orange.data.variable import DiscreteVariable, ContinuousVariable
 
 from io import StringIO, BytesIO
 from collections import defaultdict, namedtuple
@@ -289,6 +292,44 @@ class BioGRID(PPIDatabase):
                 (taxid,))
 
         return [t[0] for t in cur.fetchall()]
+
+    def proteins_table(self, taxid=None):
+        """
+        Return a Orange.base.Table of all protein data.
+        If `taxid` is not None limit the results to proteins from this organism
+        only.
+
+        """
+        if taxid is None:
+            cur = self.db.execute("""\
+                        select *
+                        from proteins""")
+        else:
+            cur = self.db.execute("""\
+                        select *
+                        from proteins
+                        where organism_interactor=?""",
+                                  (taxid,))
+
+        data = cur.fetchall()
+
+        # TODO:fix this
+        data = [[int(d[0]), int(d[1]), int(d[5]), str(d[2]), str(d[3]), str(d[4])] for d in data]
+        data.sort()
+
+        header_values = [sorted(list({d[i] for d in data})) for i in [3,4,5]]
+
+        values = [
+            ContinuousVariable(name='BioGRID id', number_of_decimals=0),
+            ContinuousVariable(name='Entrez gene id', number_of_decimals=0),
+            ContinuousVariable(name='Organism Taxonomy id', number_of_decimals=0),
+            DiscreteVariable(name='Systematic name', values=header_values[0]),
+            DiscreteVariable(name='Official symbol', values=header_values[1]),
+            DiscreteVariable(name='Synonyms', values=header_values[2]),
+        ]
+        domain = Domain(values)
+
+        return Table(domain, data)
 
     def synonyms(self, id):
         """

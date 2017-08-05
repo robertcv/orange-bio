@@ -7,23 +7,40 @@ biogrid = BioGRID()
 org = list(biogrid.organisms())
 print(org)
 
-ids = biogrid.ids(org[0])
-print(ids)
+proteins_table = biogrid.proteins_table(org[0])
+print(proteins_table)
 
-synonyms = biogrid.synonyms(ids[1])
-print(synonyms)
+# heders = [h[0] for h in proteins_table.description]
+# print(heders)
+# data = proteins_table.fetchall()
+# print(data)
 
-edges = biogrid.edges(ids[0])
-print(edges)
+# heder_values = [list({str(d[i]) for d in data}) for i, h in enumerate(heders)]
+#
+# from Orange.base import Table
+# from Orange.data.domain import Domain
+# from Orange.data.variable import DiscreteVariable
+# import numpy
+#
+# dom = Domain([DiscreteVariable(name=h, values=heder_values[i]) for i, h in enumerate(heders)])
+#
+# arr = numpy.array(data, dtype=str)
+#
+# ot = Table(dom, data)
+#
+# print(ot)
 
-network = biogrid.extract_network(org[0])
-test_santa = SANTA(network, {ids[i]: 1 for i in range(50)})
-k_net, auc_k_net = test_santa.k_net()
-print(k_net)
-
-plt.figure(1)
-plt.plot(k_net)
-
-plt.figure(2)
-nx.draw_networkx(network)
-plt.show()
+# edges = biogrid.edges(ids[0])
+# print(edges)
+#
+# network = biogrid.extract_network(org[0])
+# test_santa = SANTA(network, {ids[i]: 1 for i in range(50)})
+# k_net, auc_k_net = test_santa.k_net()
+# print(k_net)
+#
+# plt.figure(1)
+# plt.plot(k_net)
+#
+# plt.figure(2)
+# nx.draw_networkx(network)
+# plt.show()
