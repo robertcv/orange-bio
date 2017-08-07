@@ -7,11 +7,11 @@ biogrid = BioGRID()
 org = list(biogrid.organisms())
 #print(org)
 
-links_table = biogrid.proteins_table(org[2])
-
-
-a = links_table[links_table.domain[0]]
-print(a)
+# links_table = biogrid.proteins_table(org[2])
+#
+#
+# a = links_table[links_table.domain[0]]
+# print(a)
 
 #proteins_table = biogrid.proteins_table(org[0])
 #print(proteins_table)
@@ -39,7 +39,13 @@ print(a)
 # edges = biogrid.edges(ids[0])
 # print(edges)
 #
-# network = biogrid.extract_network(org[0])
+print(len(biogrid.proteins_table(org[2])))
+network = biogrid.extract_network(org[2])
+max_dist = network.nodes()
+print(max_dist)
+
+
+
 # print(network.nodes_iter())
 # test_santa = SANTA(network, {ids[i]: 1 for i in range(50)})
 # k_net, auc_k_net = test_santa.k_net()

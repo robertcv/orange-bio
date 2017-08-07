@@ -24,14 +24,14 @@ class SANTA(object):
         if self.dist_matrix is None:
             self.dist_matrix = nx.all_pairs_shortest_path_length(self.network)
 
+        if self.max_dist is None:
+            self.max_dist = max(max(n.values()) for n in self.dist_matrix.values())
+
         if self.nodes is None:
             self.nodes = self.network.nodes()
 
         if self.number_of_nodes is None:
             self.number_of_nodes = self.network.number_of_nodes()
-
-        if self.max_dist is None:
-            self.max_dist = nx.diameter(self.network)
 
         if self.mean_node_weight is None:
             self.mean_node_weight = sum(self.node_weights.values()) / self.number_of_nodes
@@ -46,11 +46,11 @@ class SANTA(object):
     def _k_net(self, s):
         k_net_s = 0
 
-        for i in self.nodes:
+        for i in self.dist_matrix:
             if self.all_node_weights[self.w_index[i]] != 0:
                 tmp = 0
 
-                for j in self.nodes:
+                for j in self.dist_matrix[i]:
                     if self.dist_matrix[i][j] <= s:
                         tmp += self.all_node_weights[self.w_index[j]] - self.mean_node_weight
 
@@ -97,10 +97,10 @@ class SANTA(object):
         pn = (2 / (self.mean_node_weight * self.number_of_nodes)**2)
         k_node = []
 
-        for i in self.nodes:
+        for i in self.dist_matrix:
             if self.all_node_weights[self.w_index[i]] == 0:
                 tmp = [i, 0]
-                for j in self.nodes:
+                for j in self.dist_matrix[i]:
                     if self.dist_matrix[i][j] <= s:
                         tmp[1] += self.all_node_weights[self.w_index[j]] - self.mean_node_weight
                 tmp[1] *= pn

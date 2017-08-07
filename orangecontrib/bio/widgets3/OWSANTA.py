@@ -33,7 +33,7 @@ class OWSANTA(OWWidget):
         self.p_value_iterations = 0
 
         self.calc_k_node = False
-        self.k_node_node = ''
+        self.k_node_s = 0
 
         box_info = gui.widgetBox(self.controlArea, "Info")
         self.network_info = gui.widgetLabel(box_info, 'Network:\n  No network.')
@@ -56,8 +56,9 @@ class OWSANTA(OWWidget):
         gui.checkBox(box_santa, self, 'calc_k_node',
                      'Calculate Knode')
         box_k_node = gui.widgetBox(box_santa)
-        gui.widgetLabel(box_k_node, 'Select node of interest:')
-        self.cb_n = gui.comboBox(box_k_node, self, "k_node_node")
+        gui.spin(box_k_node, self, 'k_node_s', minv=1, maxv=100,
+                 step=1, label='Select node of distance:')
+        self.k_node = gui.widgetLabel(box_k_node, 'Knode: no data')
 
         gui.button(box_santa, self, "Calculate", callback=self.calc)
 
@@ -68,12 +69,9 @@ class OWSANTA(OWWidget):
             self.network_info.setText('Network:\n  Number of nodes: {}\n  Number of edges: {}'.format(
                 self.network.number_of_nodes(),
                 self.network.number_of_edges()))
-            self.cb_n.clear()
-            self.cb_n.addItems(sorted(self.network.nodes()))
         else:
             self.network = None
             self.network_info.setText('Network:\n  No network.')
-            self.cb_n.clear()
 
     @Inputs.proteins
     def set_proteins(self, proteins):
@@ -88,16 +86,12 @@ class OWSANTA(OWWidget):
             self.cb_p.clear()
 
     def calc(self):
-        #if any([self.network, self.proteins, self.protein_col]):
-        #    return
-
         c_i = self.proteins.domain.index(self.protein_col)
         node_weights = {}
         for i in range(len(self.proteins)):
-            id = self.proteins[i][c_i].value
+            id = str(int(self.proteins[i][c_i].value))
             node_weights[id] = 1
 
-        print(node_weights)
         self.santa = obiSANTA.SANTA(self.network, node_weights)
 
         k_net, auc_k_net = self.santa.k_net()
@@ -109,8 +103,8 @@ class OWSANTA(OWWidget):
             self.p_value.setText('P-value: {}'.format(p_value))
 
         if self.calc_k_node:
-            k_node = self.santa.k_node(self.k_node_node)
-
+            k_node = self.santa.k_node(self.k_node_s)
+            self.k_node.setText('Knode: {}'.format(k_node[:5]))
 
 
 def test_main():
