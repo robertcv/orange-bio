@@ -4,17 +4,34 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 biogrid = BioGRID()
-org = list(biogrid.organisms())
-#print(org)
+org = biogrid.organisms()
+
+att = biogrid.attribute_unique_value('tags', taxid=org[0])
+print(att)
+
+
+
+
+#
+# import time
+# s=0
+# N=1
+#
+# for _ in range(N):
+#     start = time.clock()
+#     number = biogrid.number_of_edges(org[0])
+#     s += time.clock()-start
+#
+# print(s/N)
 
 # links_table = biogrid.proteins_table(org[2])
 #
 #
 # a = links_table[links_table.domain[0]]
 # print(a)
-
-#proteins_table = biogrid.proteins_table(org[0])
-#print(proteins_table)
+#
+# proteins_table = biogrid.proteins_table(org[0])
+# print(proteins_table)
 
 # heders = [h[0] for h in proteins_table.description]
 # print(heders)
@@ -39,10 +56,10 @@ org = list(biogrid.organisms())
 # edges = biogrid.edges(ids[0])
 # print(edges)
 #
-print(len(biogrid.proteins_table(org[2])))
-network = biogrid.extract_network(org[2])
-max_dist = network.nodes()
-print(max_dist)
+# print(len(biogrid.proteins_table(org[2])))
+# network = biogrid.extract_network(org[2])
+# max_dist = network.nodes()
+# print(max_dist)
 
 
 
