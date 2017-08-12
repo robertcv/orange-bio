@@ -168,6 +168,12 @@ class PPIDatabase(object):
         """
         raise NotImplementedError
 
+    def to_type(self, v_type, value):
+        if value is None:
+            return value
+        else:
+            return v_type(value)
+
 
 class BioGRID(PPIDatabase):
     """
@@ -271,7 +277,187 @@ class BioGRID(PPIDatabase):
     def organisms(self):
         cur = self.db.execute("select distinct organism_interactor \n"
                               "from proteins")
-        return map(itemgetter(0), cur.fetchall())
+
+        return [o[0] for o in cur.fetchall()]
+
+    def number_of_nodes(self, taxid=None, attr=None, attr_value=None):
+        """
+        Return a number of nodes that will be in the network.
+        If `taxid` is not None limit the results to ids from this organism
+        only.
+        """
+        condition = ''
+        if attr is not None and attr_value is not None and attr_value:
+            condition = attr + ' in (' + ', '.join(['"' + s + '"' for s in attr_value if s is not None]) + ')'
+            condition = "biogrid_id_interactor in (select biogrid_id_interactor_a from links where " + condition + \
+                        " union select biogrid_id_interactor_b from links where " + condition + ")"
+
+        if taxid is None:
+            cur = self.db.execute("select count(*) from proteins" +
+                                  (" where " + condition if condition else ''))
+        else:
+            cur = self.db.execute("select count(*) from proteins where organism_interactor=" + taxid +
+                                  (" and " + condition if condition else ""))
+
+        return cur.fetchone()[0]
+
+    def number_of_edges(self, taxid=None, attr=None, attr_value=None):
+        """
+        Return a number of edges that will be in the network.
+        If `taxid` is not None limit the results to ids from this organism
+        only.
+        """
+        condition = ''
+        if attr is not None and attr_value is not None and attr_value:
+            condition = attr + ' in (' + ', '.join(['"' + s + '"' for s in attr_value if s is not None]) + ')'
+
+        if taxid is None:
+            cur = self.db.execute("select count(*) from links " + ("where " + condition if condition else ''))
+        else:
+            cur = self.db.execute("select count(*) from links " +
+                                  "where biogrid_id_interactor_a in " +
+                                  "(select biogrid_id_interactor from proteins where organism_interactor="+taxid+") " +
+                                  "and biogrid_id_interactor_b in " +
+                                  "(select biogrid_id_interactor from proteins where organism_interactor="+taxid+") " +
+                                  ("and " + condition if condition else ""))
+
+        return cur.fetchone()[0]
+
+    def attribute_unique_value(self, attr, taxid=None):
+        """
+        Return a list of all unique values of given column(attr).
+        If `taxid` is not None limit the results to ids from this organism
+        only.
+        """
+        if taxid is None:
+            cur = self.db.execute("select distinct " + attr + " from links")
+        else:
+            cur = self.db.execute("select distinct " + attr + " from links " +
+                                  "where biogrid_id_interactor_a in " +
+                                  "(select biogrid_id_interactor from proteins where organism_interactor="+taxid+") " +
+                                  "and biogrid_id_interactor_b in " +
+                                  "(select biogrid_id_interactor from proteins where organism_interactor="+taxid+")")
+
+        return [t[0] for t in cur.fetchall() if t[0] is not None]
+
+    def proteins_table(self, taxid=None, attr=None, attr_value=None):
+        """
+        Return a Orange.base.Table of all protein data.
+        If `taxid` is not None limit the results to proteins from this organism
+        only.
+        """
+        condition = ''
+        if attr is not None and attr_value is not None and attr_value:
+            condition = attr + ' in (' + ', '.join(['"' + s + '"' for s in attr_value if s is not None]) + ')'
+            condition = "biogrid_id_interactor in (select biogrid_id_interactor_a from links where " + condition + \
+                        " union select biogrid_id_interactor_b from links where " + condition + ")"
+
+        if taxid is None:
+            cur = self.db.execute("select * from proteins" +
+                                  (" where " + condition if condition else ''))
+        else:
+            cur = self.db.execute("select * from proteins where organism_interactor=" + taxid +
+                                  (" and " + condition if condition else ""))
+
+        data = cur.fetchall()
+
+        data = [[self.to_type(int, d[0]), self.to_type(int, d[1]), d[2], d[3], d[4], self.to_type(int, d[5])] for d in data]
+        data.sort()
+
+        header_values = [list({d[i] for d in data if d[i] is not None}) for i in [2, 3, 4]]
+
+        values = [
+            ContinuousVariable(name='BioGRID id', number_of_decimals=0),
+            ContinuousVariable(name='Entrez gene id', number_of_decimals=0),
+            DiscreteVariable(name='Systematic name', values=header_values[0]),
+            DiscreteVariable(name='Official symbol', values=header_values[1]),
+            DiscreteVariable(name='Synonyms', values=header_values[2]),
+            ContinuousVariable(name='Organism Taxonomy id', number_of_decimals=0),
+        ]
+        domain = Domain(values)
+
+        return Table(domain, data)
+
+    def links_table(self, taxid=None, attr=None, attr_value=None):
+        """
+        Return a Orange.base.Table of all links data.
+        If `taxid` is not None limit the results to proteins from this organism
+        only.
+        """
+        condition = ''
+        if attr is not None and attr_value is not None and attr_value:
+            condition = attr + ' in (' + ', '.join(['"' + s + '"' for s in attr_value if s is not None]) + ')'
+
+        if taxid is None:
+            cur = self.db.execute("select * from links " + ("where " + condition if condition else ''))
+        else:
+            cur = self.db.execute("select * from links " +
+                                  "where biogrid_id_interactor_a in " +
+                                  "(select biogrid_id_interactor from proteins where organism_interactor="+taxid+") " +
+                                  "and biogrid_id_interactor_b in " +
+                                  "(select biogrid_id_interactor from proteins where organism_interactor="+taxid+") " +
+                                  ("and " + condition if condition else ""))
+
+        data = cur.fetchall()
+
+        data = [[self.to_type(int, d[0]), self.to_type(int, d[1]), self.to_type(int, d[2]), d[3], d[4], d[5],
+                 self.to_type(int, d[6]), d[7], self.to_type(float, d[8]), d[9], d[10], d[11], d[12], d[13]] for d in data]
+        data.sort()
+
+        header_values = [list({d[i] for d in data if d[i] is not None}) for i in [3, 4, 5, 7, 9, 10, 11, 12, 13]]
+
+        values = [
+            ContinuousVariable(name='BioGRID interaction id', number_of_decimals=0),
+            ContinuousVariable(name='BioGRID interactor a id', number_of_decimals=0),
+            ContinuousVariable(name='BioGRID interactor b id', number_of_decimals=0),
+            DiscreteVariable(name='Experimental system', values=header_values[0]),
+            DiscreteVariable(name='Experimental type', values=header_values[1]),
+            DiscreteVariable(name='Author', values=header_values[2]),
+            ContinuousVariable(name='Pubmed id', number_of_decimals=0),
+            DiscreteVariable(name='Throughput', values=header_values[3]),
+            ContinuousVariable(name='Score'),
+            DiscreteVariable(name='Modification', values=header_values[4]),
+            DiscreteVariable(name='Phenotypes', values=header_values[5]),
+            DiscreteVariable(name='Qualifications', values=header_values[6]),
+            DiscreteVariable(name='Tags', values=header_values[7]),
+            DiscreteVariable(name='Source database', values=header_values[8]),
+        ]
+        domain = Domain(values)
+
+        return Table(domain, data)
+
+    def extract_network(self, taxid, attr, attr_value):
+        """
+        Generate an Orange network graph from links in database. Use `taxid`
+        to limit the network to a single organism.
+        """
+
+        if attr and attr_value:
+            condition1 = attr + ' in (' + ', '.join(['"' + s + '"' for s in attr_value if s is not None]) + ')'
+            condition2 = "biogrid_id_interactor in (select biogrid_id_interactor_a from links where " + condition1 + \
+                        " union select biogrid_id_interactor_b from links where " + condition1 + ")"
+
+        nodes = self.db.execute("select biogrid_id_interactor, systematic_name_interactor from proteins where organism_interactor=" + taxid +
+                                (" and " + condition2 if attr_value else "")).fetchall()
+
+        edges = self.db.execute("select biogrid_id_interactor_a, biogrid_id_interactor_b, score from links " +
+                              "where biogrid_id_interactor_a in " +
+                              "(select biogrid_id_interactor from proteins where organism_interactor=" + taxid + ") " +
+                              "and biogrid_id_interactor_b in " +
+                              "(select biogrid_id_interactor from proteins where organism_interactor=" + taxid + ") " +
+                              ("and " + condition1 if attr_value else "")).fetchall()
+
+        from orangecontrib import network
+
+        graph = network.Graph()
+
+        for n, s in nodes:
+            graph.add_node(n, synonyms=s)
+
+        for n1, n2, s in edges:
+            graph.add_edge(n1, n2, weight=s)
+
+        return graph
 
     def ids(self, taxid=None):
         """
@@ -292,93 +478,6 @@ class BioGRID(PPIDatabase):
                 (taxid,))
 
         return [t[0] for t in cur.fetchall()]
-
-    def proteins_table(self, taxid=None):
-        """
-        Return a Orange.base.Table of all protein data.
-        If `taxid` is not None limit the results to proteins from this organism
-        only.
-
-        """
-        if taxid is None:
-            cur = self.db.execute("""\
-                        select *
-                        from proteins""")
-        else:
-            cur = self.db.execute("""\
-                        select *
-                        from proteins
-                        where organism_interactor=?""",
-                                  (taxid,))
-
-        data = cur.fetchall()
-
-        # TODO:fix this
-        data = [[int(d[0]), int(d[1]), int(d[5]), str(d[2]), str(d[3]), str(d[4])] for d in data]
-        data.sort()
-
-        header_values = [sorted(list({d[i] for d in data})) for i in [3,4,5]]
-
-        values = [
-            ContinuousVariable(name='BioGRID id', number_of_decimals=0),
-            ContinuousVariable(name='Entrez gene id', number_of_decimals=0),
-            ContinuousVariable(name='Organism Taxonomy id', number_of_decimals=0),
-            DiscreteVariable(name='Systematic name', values=header_values[0]),
-            DiscreteVariable(name='Official symbol', values=header_values[1]),
-            DiscreteVariable(name='Synonyms', values=header_values[2]),
-        ]
-        domain = Domain(values)
-
-        return Table(domain, data)
-
-    def links_table(self, taxid=None):
-        """
-        Return a Orange.base.Table of all links data.
-        If `taxid` is not None limit the results to proteins from this organism
-        only.
-
-        """
-        if taxid is None:
-            cur = self.db.execute("""\
-                        select *
-                        from links""")
-        else:
-            cur = self.db.execute("""\
-                        select *
-                        from links
-                        where biogrid_id_interactor_a in 
-                        (select biogrid_id_interactor from proteins where organism_interactor=?)
-                        and biogrid_id_interactor_b in 
-                        (select biogrid_id_interactor from proteins where organism_interactor=?)
-                        """, (taxid, taxid))
-
-        data = cur.fetchall()
-
-        data = [[int(d[0]), int(d[1]), int(d[2]), str(d[3]), str(d[4]), str(d[5]), int(d[6]), str(d[7]), str(d[8]),
-                 str(d[9]), str(d[10]), str(d[11]), str(d[12]), str(d[13])] for d in data]
-        data.sort()
-
-        header_values = [sorted(list({d[i] for d in data})) for i in [3, 4, 5, 7, 8, 9, 10, 11, 12, 13]]
-
-        values = [
-            ContinuousVariable(name='BioGRID interaction id', number_of_decimals=0),
-            ContinuousVariable(name='BioGRID interactor a id', number_of_decimals=0),
-            ContinuousVariable(name='BioGRID interactor b id', number_of_decimals=0),
-            DiscreteVariable(name='Experimental system', values=header_values[0]),
-            DiscreteVariable(name='Experimental type', values=header_values[1]),
-            DiscreteVariable(name='Author', values=header_values[2]),
-            ContinuousVariable(name='Pubmed id', number_of_decimals=0),
-            DiscreteVariable(name='Throughput', values=header_values[3]),
-            DiscreteVariable(name='Score', values=header_values[4]),
-            DiscreteVariable(name='Modification', values=header_values[5]),
-            DiscreteVariable(name='Phenotypes', values=header_values[6]),
-            DiscreteVariable(name='Qualifications', values=header_values[7]),
-            DiscreteVariable(name='Tags', values=header_values[8]),
-            DiscreteVariable(name='Source database', values=header_values[9]),
-        ]
-        domain = Domain(values)
-
-        return Table(domain, data)
 
     def synonyms(self, id):
         """
@@ -612,6 +711,11 @@ class BioGRID(PPIDatabase):
         create index if not exists index_on_biogrid_id_interactor
            on proteins (biogrid_id_interactor)
         """)
+        self.db.execute("""\
+        create index if not exists index_on_organism_interactor
+           on proteins (organism_interactor)
+        """)
+
 
 
 STRINGInteraction = namedtuple(
