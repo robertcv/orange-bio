@@ -1113,9 +1113,15 @@ class STRING(PPIDatabase):
         dbcon.executescript(textwrap.dedent("""
             CREATE INDEX IF NOT EXISTS index_link_protein_id1
                 ON links (protein_id1);
+            
+            CREATE INDEX IF NOT EXISTS index_link_protein_id2
+                ON links (protein_id2);
 
             CREATE INDEX IF NOT EXISTS index_action_protein_id1
                 ON actions (protein_id1);
+            
+            CREATE INDEX IF NOT EXISTS index_action_protein_id2
+                ON actions (protein_id2);
 
             CREATE INDEX IF NOT EXISTS index_proteins_id
                 ON proteins (protein_id);
@@ -1187,7 +1193,7 @@ class STRINGDetailed(STRING):
         if taxid is not None and detailed_database is not None:
             raise ValueError("taxid and detailed_database are exclusive")
 
-        db_file = serverfiles.localpath(self.DOMAIN, self.FILENAME)
+        db_file = serverfiles.localpath(self.DOMAIN, self.FILENAME.format(taxid=taxid))
         if taxid is not None and detailed_database is None:
             detailed_database = serverfiles.localpath_download(
                 self.DOMAIN,
@@ -1202,6 +1208,19 @@ class STRINGDetailed(STRING):
 
         self.db_detailed = sqlite3.connect(detailed_database)
         self.db_detailed.execute("ATTACH DATABASE ? as string", (db_file,))
+        self.db_detailed.execute('DROP TABLE IF EXISTS links_evidence;')
+        self.db_detailed.execute('create table links_evidence as ' +
+                                 'select links.protein_id1 as protein_id1, links.protein_id2 as protein_id2, score, ' +
+                                 'neighborhood, fusion, cooccurence, coexpression, experimental, database, textmining ' +
+                                 'from links join evidence on ' +
+                                 'links.protein_id1=evidence.protein_id1 and ' +
+                                 'links.protein_id2=evidence.protein_id2')
+        self.db_detailed.execute('CREATE INDEX IF NOT EXISTS index_links_evidence '
+                                 'ON links_evidence (protein_id1, protein_id2)')
+
+    def sql(self, sql):
+        cur = self.db_detailed.execute(sql)
+        return cur.fetchall()
 
     def edges_annotated(self, id):
         edges = STRING.edges_annotated(self, id)
@@ -1223,6 +1242,81 @@ class STRINGDetailed(STRING):
                 STRINGDetailedInteraction(*(tuple(edge) + tuple(evidence)))
             )
         return edges_nc
+
+    def number_of_nodes(self):
+        cur = self.db_detailed.execute("select count(*) from proteins")
+        return cur.fetchone()[0]
+
+    def number_of_edges(self):
+        cur = self.db_detailed.execute("select count(*) from links")
+        return cur.fetchone()[0]
+
+    def proteins_table(self):
+        cur = self.db_detailed.execute("select distinct source from aliases")
+        sources = {s[0]: set() for s in cur.fetchall()}
+        source_index = {k: v+1 for v, k in enumerate(sorted(sources.keys()))}
+
+        cur = self.db_detailed.execute("select protein_id, alias, source from aliases")
+        proteins = set()
+        data = []
+        for a in cur.fetchall():
+            data.append(a)
+            sources[a[2]].add(a[1])
+            proteins.add(a[0])
+        data.sort()
+
+        values = [DiscreteVariable(name='Protein', values=proteins)]
+        for s, v in sorted(sources.items()):
+            values.append(DiscreteVariable(name=s, values=v))
+
+        domain = Domain(values)
+
+        n_values = len(values) - 1
+        res = []
+        proteins_index = {}
+        for v, k in enumerate(sorted(proteins)):
+            proteins_index[k] = v
+            res.append([k] + [None]*n_values)
+
+        for p, a, s in data:
+            res[proteins_index[p]][source_index[s]] = a
+
+        return Table(domain, res[:100])
+
+    def links_table(self):
+        cur = self.db_detailed.execute("""\
+            select links_evidence.protein_id1, links_evidence.protein_id2, links_evidence.score,
+                   action, mode, actions.score,
+                   neighborhood, fusion, cooccurence, coexpression,
+                   experimental, database, textmining
+            from links_evidence left join actions on
+                   links_evidence.protein_id1=actions.protein_id1 and
+                   links_evidence.protein_id2=actions.protein_id2
+            """)
+
+        data = cur.fetchall()
+        data.sort()
+
+        header_values = [{d[i] for d in data if d[i] is not None} for i in [0, 1, 3, 4]]
+
+        values = [
+            DiscreteVariable(name='Protein id 1', values=header_values[0]),
+            DiscreteVariable(name='Protein id 2', values=header_values[1]),
+            ContinuousVariable(name='Combined score'),
+            DiscreteVariable(name='Action type', values=header_values[2]),
+            DiscreteVariable(name='Mode', values=header_values[3]),
+            ContinuousVariable(name='Action score'),
+            ContinuousVariable(name='Neighborhood score'),
+            ContinuousVariable(name='Fusion score'),
+            ContinuousVariable(name='Cooccurence score'),
+            ContinuousVariable(name='Coexpression score'),
+            ContinuousVariable(name='Experimental score'),
+            ContinuousVariable(name='Database score'),
+            ContinuousVariable(name='Textmining score'),
+        ]
+        domain = Domain(values)
+
+        return Table(domain, data[:100])
 
     @classmethod
     def init_db(cls, version, taxid, cache_dir=None, dbfilename=None):
@@ -1296,6 +1390,12 @@ class STRINGDetailed(STRING):
             con.execute("""\
                 CREATE INDEX IF NOT EXISTS index_evidence
                     ON evidence (protein_id1, protein_id2)
+                
+                CREATE INDEX IF NOT EXISTS index_evidence_id1
+                    ON evidence (protein_id1)
+                
+                CREATE INDEX IF NOT EXISTS index_evidence_id1
+                    ON evidence (protein_id2)
             """)
 
             con.executescript("""
