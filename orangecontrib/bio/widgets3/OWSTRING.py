@@ -1,5 +1,4 @@
 import sys
-from AnyQt.QtWidgets import QListWidget
 from Orange.widgets.widget import OWWidget, Output
 from Orange.widgets import gui
 from orangecontrib.bio import obiSTRING, obiTaxonomy
@@ -35,9 +34,7 @@ class OWSTRING(OWWidget):
     want_main_area = False
 
     ATTRIBUTES = [
-        ('Action', 'action'),
-        ('Action mode', 'mode'),
-        ('Action score', 'score'),
+        ('Combined score', 'score'),
         ('Neighborhood score', 'neighborhood'),
         ('Fusion score', 'fusion'),
         ('Cooccurence score', 'cooccurence'),
@@ -70,65 +67,51 @@ class OWSTRING(OWWidget):
         self.info = gui.widgetLabel(box1, 'No database subset yet chosen.')
 
         box2 = gui.widgetBox(self.controlArea, "Select database subset")
+
         gui.widgetLabel(box2, 'Select organism.')
         gui.comboBox(box2, self, "organism_id",
                      callback=self.organism_update_info,
                      items=self.taxonomy)
+
         gui.widgetLabel(box2, 'Select attribute.')
         gui.comboBox(box2, self, "attribute_id",
-                     callback=self.attribute_update,
                      items=[a[0] for a in self.ATTRIBUTES])
 
-        self.conditions = []
-        self.conditions_index = []
-        self.conditions_box = gui.listBox(box2, self, "conditions_index",
-                                          selectionMode=QListWidget.MultiSelection)
-        self.conditions_box.itemClicked.connect(self.attribute_update_info)
+        self.condition = 0
+        gui.spin(box2, self, 'condition',
+                 minv=0, maxv=1000, step=10, label='Minimum score:')
 
+        gui.button(self.controlArea, self, "Check numbers", callback=self.update_info)
         gui.button(self.controlArea, self, "Commit", callback=self.commit)
 
     def organism_update_info(self):
         self.string = obiSTRING.STRINGDetailed(taxid=self.organisms[self.organism_id])
-        self.info.setText('Processing ...')
-        self.conditions_box.clear()
         node_n = self.string.number_of_nodes()
         edge_n = self.string.number_of_edges()
         self.info.setText('Number of nodes: {}\nNumber of edges: {}'.format(node_n, edge_n))
 
-    def attribute_update(self):
-        pass
-        # self.conditions_box.clear()
-        # self.conditions_box.addItem('Processing ...')
-        # self.conditions = self.biogrid.attribute_unique_value(self.ATTRIBUTES[self.attribute_id][1],
-        #                                                       taxid=self.organisms[self.organism_id])
-        # self.conditions_box.clear()
-        # self.conditions_box.addItems(self.conditions)
-
-    def attribute_update_info(self):
-        pass
-        # self.info.setText('Processing ...')
-        # node_n = self.biogrid.number_of_nodes(taxid=self.organisms[self.organism_id],
-        #                                       attr=self.ATTRIBUTES[self.attribute_id][1],
-        #                                       attr_value=[self.conditions[i] for i in self.conditions_index])
-        # edge_n = self.biogrid.number_of_edges(taxid=self.organisms[self.organism_id],
-        #                                       attr=self.ATTRIBUTES[self.attribute_id][1],
-        #                                       attr_value=[self.conditions[i] for i in self.conditions_index])
-        # self.info.setText('Number of nodes: {}\nNumber of edges: {}'.format(node_n, edge_n))
+    def update_info(self):
+        node_n = self.string.number_of_nodes(attr=self.ATTRIBUTES[self.attribute_id][1],
+                                              attr_value=self.condition)
+        edge_n = self.string.number_of_edges(attr=self.ATTRIBUTES[self.attribute_id][1],
+                                              attr_value=self.condition)
+        self.info.setText('Number of nodes: {}\nNumber of edges: {}'.format(node_n, edge_n))
 
     def commit(self):
         self.progressBarInit()
-        self.proteins = self.string.proteins_table()
+        self.proteins = self.string.proteins_table(attr=self.ATTRIBUTES[self.attribute_id][1],
+                                                   attr_value=self.condition)
         self.Outputs.table.send(self.proteins)
         self.progressBarSet(33)
 
-        self.interactions = self.string.links_table()
+        self.interactions = self.string.links_table(attr=self.ATTRIBUTES[self.attribute_id][1],
+                                                    attr_value=self.condition)
         self.Outputs.interactions.send(self.interactions)
         self.progressBarSet(66)
-        #
-        # self.network = self.biogrid.extract_network(self.organisms[self.organism_id],
-        #                                             self.ATTRIBUTES[self.attribute_id][1],
-        #                                             [self.conditions[i] for i in self.conditions_index])
-        # self.Outputs.graph.send(self.network)
+
+        self.network = self.string.extract_network(attr=self.ATTRIBUTES[self.attribute_id][1],
+                                                    attr_value=self.condition)
+        self.Outputs.graph.send(self.network)
         self.progressBarFinished()
 
 
