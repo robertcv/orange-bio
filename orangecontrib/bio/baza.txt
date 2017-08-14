@@ -1,0 +1,33 @@
+    Database schema
+    ---------------
+    table `links`:
+        - `protein_id1`: id (text)
+        - `protein_id2`: id (text)
+        - `score`: combined score (int)
+
+    table `actions`:
+        - `protein_id1`: id (text)
+        - `protein_id2`: id (text)
+        - `mode`: mode (text)
+        - `action`: action type (text)
+        - `score`: action score (int)
+
+    table `proteins`:
+        - `protein_id`: protein id in STRING (text) (in the form of {taxid}.{name})
+        - `taxid`: organism taxid (text)
+
+    table `aliases`:
+        - `protein_id: id (text)
+        - `alias`: protein alias (text)
+        - `source`: protein alias source (text)
+
+    table `evidence`:
+        - `protein_id1`: protein id (text)
+        - `protein_id2`: protein id (text)
+        - `neighborhood`: score (int)
+        - `fusion`: score (int)
+        - `cooccurence`: score (int)
+        - `coexpression`: score (int)
+        - `experimental`: score (int)
+        - `database`: score (int)
+        - `textmining`: score (int)

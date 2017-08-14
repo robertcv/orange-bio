@@ -1215,15 +1215,9 @@ class STRINGDetailed(STRING):
 
         self.db_detailed = sqlite3.connect(detailed_database)
         self.db_detailed.execute("ATTACH DATABASE ? as string", (db_file,))
-        self.db_detailed.execute('DROP TABLE IF EXISTS links_evidence;')
-        self.db_detailed.execute('create table links_evidence as ' +
-                                 'select links.protein_id1 as protein_id1, links.protein_id2 as protein_id2, score, ' +
-                                 'neighborhood, fusion, cooccurence, coexpression, experimental, database, textmining ' +
-                                 'from links join evidence on ' +
-                                 'links.protein_id1=evidence.protein_id1 and ' +
-                                 'links.protein_id2=evidence.protein_id2')
-        self.db_detailed.execute('CREATE INDEX IF NOT EXISTS index_links_evidence '
-                                 'ON links_evidence (protein_id1, protein_id2)')
+
+        self._proteins_table = None
+        self._links_table = None
 
     def sql(self, sql):
         cur = self.db_detailed.execute(sql)
@@ -1250,20 +1244,41 @@ class STRINGDetailed(STRING):
             )
         return edges_nc
 
-    def number_of_nodes(self):
-        cur = self.db_detailed.execute("select count(*) from proteins")
+    def number_of_nodes(self, attr=None, attr_value=None):
+        condition = 'proteins'
+        if attr is not None and attr_value is not None:
+            condition = attr + ' > ' + str(attr_value)
+            condition = "(select protein_id1 from " + ('links' if attr == 'score' else 'evidence') + " where " + condition + \
+                        " union select protein_id2 from " + ('links' if attr == 'score' else 'evidence') + " where " + condition + ")"
+        cur = self.db_detailed.execute("select count(*) from " + condition)
         return cur.fetchone()[0]
 
-    def number_of_edges(self):
-        cur = self.db_detailed.execute("select count(*) from links")
+    def number_of_edges(self, attr=None, attr_value=None):
+        condition = ''
+        table = 'evidence'
+        if attr is not None and attr_value is not None:
+            condition = attr + ' > ' + str(attr_value)
+            if attr == 'score':
+                table = 'links'
+
+        cur = self.db_detailed.execute("select count(*) from " + table +
+                                       (" where " + condition if condition else ''))
         return cur.fetchone()[0]
 
-    def proteins_table(self):
-        cur = self.db_detailed.execute("select distinct source from aliases")
+    def proteins_table(self, attr=None, attr_value=None):
+        condition = ''
+        if attr is not None and attr_value is not None:
+            condition = attr + ' > ' + str(attr_value)
+            condition = "(select protein_id1 from " + ('links' if attr == 'score' else 'evidence') + " where " + condition + \
+                        " union select protein_id2 from " + ('links' if attr == 'score' else 'evidence') + " where " + condition + ")"
+
+        cur = self.db_detailed.execute("select distinct source from aliases" +
+                                       (" where protein_id in " + condition if condition else ''))
         sources = {s[0]: set() for s in cur.fetchall()}
         source_index = {k: v+1 for v, k in enumerate(sorted(sources.keys()))}
 
-        cur = self.db_detailed.execute("select protein_id, alias, source from aliases")
+        cur = self.db_detailed.execute("select protein_id, alias, source from aliases" +
+                                       (" where protein_id in " + condition if condition else ''))
         proteins = set()
         data = []
         for a in cur.fetchall():
@@ -1272,9 +1287,9 @@ class STRINGDetailed(STRING):
             proteins.add(a[0])
         data.sort()
 
-        values = [DiscreteVariable(name='Protein', values=proteins)]
+        values = [DiscreteVariable(name='Protein', values=sorted(proteins))]
         for s, v in sorted(sources.items()):
-            values.append(DiscreteVariable(name=s, values=v))
+            values.append(DiscreteVariable(name=s, values=sorted(v)))
 
         domain = Domain(values)
 
@@ -1288,42 +1303,65 @@ class STRINGDetailed(STRING):
         for p, a, s in data:
             res[proteins_index[p]][source_index[s]] = a
 
-        return Table(domain, res[:100])
+        self._proteins_table = Table(domain, res)
+        return self._proteins_table
 
-    def links_table(self):
-        cur = self.db_detailed.execute("""\
-            select links_evidence.protein_id1, links_evidence.protein_id2, links_evidence.score,
-                   action, mode, actions.score,
-                   neighborhood, fusion, cooccurence, coexpression,
-                   experimental, database, textmining
-            from links_evidence left join actions on
-                   links_evidence.protein_id1=actions.protein_id1 and
-                   links_evidence.protein_id2=actions.protein_id2
-            """)
+    def links_table(self, attr=None, attr_value=None):
+
+        condition = ''
+        if attr is not None and attr_value is not None:
+            condition = attr + ' > ' + str(attr_value)
+
+        cur = self.db_detailed.execute("select links.protein_id1, links.protein_id2, score," +
+                                       "neighborhood, fusion, cooccurence, coexpression, experimental, database, textmining " +
+                                       "from links join evidence on " +
+                                       "links.protein_id1=evidence.protein_id1 and " +
+                                       "links.protein_id2=evidence.protein_id2 " +
+                                       (" where " + condition if condition else ''))
 
         data = cur.fetchall()
         data.sort()
 
-        header_values = [{d[i] for d in data if d[i] is not None} for i in [0, 1, 3, 4]]
+        header_values = [{d[i] for d in data if d[i] is not None} for i in [0, 1]]
 
         values = [
             DiscreteVariable(name='Protein id 1', values=header_values[0]),
             DiscreteVariable(name='Protein id 2', values=header_values[1]),
-            ContinuousVariable(name='Combined score'),
-            DiscreteVariable(name='Action type', values=header_values[2]),
-            DiscreteVariable(name='Mode', values=header_values[3]),
-            ContinuousVariable(name='Action score'),
-            ContinuousVariable(name='Neighborhood score'),
-            ContinuousVariable(name='Fusion score'),
-            ContinuousVariable(name='Cooccurence score'),
-            ContinuousVariable(name='Coexpression score'),
-            ContinuousVariable(name='Experimental score'),
-            ContinuousVariable(name='Database score'),
-            ContinuousVariable(name='Textmining score'),
+            ContinuousVariable(name='Combined score', number_of_decimals=0),
+            ContinuousVariable(name='Neighborhood score', number_of_decimals=0),
+            ContinuousVariable(name='Fusion score', number_of_decimals=0),
+            ContinuousVariable(name='Cooccurence score', number_of_decimals=0),
+            ContinuousVariable(name='Coexpression score', number_of_decimals=0),
+            ContinuousVariable(name='Experimental score', number_of_decimals=0),
+            ContinuousVariable(name='Database score', number_of_decimals=0),
+            ContinuousVariable(name='Textmining score', number_of_decimals=0),
         ]
         domain = Domain(values)
 
-        return Table(domain, data[:100])
+        self._links_table = Table(domain, data)
+        return self._links_table
+
+    def extract_network(self, attr=None, attr_value=None):
+
+        if self._proteins_table is None:
+            self.proteins_table(attr=attr, attr_value=attr_value)
+
+        if self._links_table is None:
+            self.links_table(attr=attr, attr_value=attr_value)
+
+        from orangecontrib import network
+
+        graph = network.Graph()
+
+        for p in self._proteins_table:
+            graph.add_node(p[0].value)
+
+        for l in self._links_table:
+            graph.add_edge(l[0].value, l[1].value, weight=l[2].value)
+
+        graph.set_items(items=self._proteins_table)
+
+        return graph
 
     @classmethod
     def init_db(cls, version, taxid, cache_dir=None, dbfilename=None):
