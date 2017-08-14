@@ -437,27 +437,21 @@ class BioGRID(PPIDatabase):
         """
 
         if attr and attr_value:
-            condition1 = attr + ' in (' + ', '.join(['"' + s + '"' for s in attr_value if s is not None]) + ')'
-            condition2 = "biogrid_id_interactor in (select biogrid_id_interactor_a from links where " + condition1 + \
-                        " union select biogrid_id_interactor_b from links where " + condition1 + ")"
-
-        nodes = self.db.execute("select biogrid_id_interactor, official_symbol_interactor from proteins where organism_interactor=" + taxid +
-                                (" and " + condition2 if attr_value else "")).fetchall()
+            condition = attr + ' in (' + ', '.join(['"' + s + '"' for s in attr_value if s is not None]) + ')'
 
         edges = self.db.execute("select biogrid_interaction_id, p1.official_symbol_interactor, p2.official_symbol_interactor, score " +
                                 "from links join proteins as p1 on biogrid_id_interactor_a=p1.biogrid_id_interactor " +
                                 "join proteins as p2 on biogrid_id_interactor_b=p2.biogrid_id_interactor " +
                                 "where p1.organism_interactor="+taxid+" and p2.organism_interactor="+taxid +
-                                (" and p1." + condition1 if attr_value else "") +
-                                (" and p2." + condition1 if attr_value else "")).fetchall()
+                                (" and " + condition if attr_value else ""))
 
 
         from orangecontrib import network
 
         graph = network.Graph()
 
-        for n, s in sorted(nodes):
-            graph.add_node(s)
+        for p in self._proteins_table:
+            graph.add_node(p[3].value)
 
         for i, n1, n2, s in sorted(edges):
             graph.add_edge(n1, n2, weight=s)
