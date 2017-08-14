@@ -2,12 +2,18 @@ from orangecontrib.bio.ppi import *
 from santa import SANTA
 import networkx as nx
 import matplotlib.pyplot as plt
+from orangecontrib.network.network import Graph
 
 biogrid = BioGRID()
-org = biogrid.organisms()
 
-att = biogrid.attribute_unique_value('tags', taxid=org[0])
-print(att)
+pt = biogrid.proteins_table(taxid='10141')
+lt = biogrid.links_table(taxid='10141')
+net = biogrid.extract_network('10141', None, None)
+
+
+
+# att = biogrid.attribute_unique_value('tags', taxid=org[0])
+# print(att)
 
 
 

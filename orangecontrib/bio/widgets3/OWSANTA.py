@@ -18,7 +18,8 @@ class OWSANTA(OWWidget):
         proteins = Input("Data", Table)
 
     class Outputs:
-        table = Output("Data", Table)
+        k_net_table = Output("Knet Data", Table)
+        k_node_table = Output("Knode Data", Table)
 
     def __init__(self):
         super().__init__()
@@ -43,7 +44,6 @@ class OWSANTA(OWWidget):
         gui.widgetLabel(box_santa, 'Select proteins id column.')
         self.cb_p = gui.comboBox(box_santa, self, "protein_col")
 
-        self.k_net = gui.widgetLabel(box_santa, 'Knet: no data')
         self.auc_k_net = gui.widgetLabel(box_santa, 'ACU for Knet: no data')
 
         gui.checkBox(box_santa, self, 'calc_p_value',
@@ -57,8 +57,7 @@ class OWSANTA(OWWidget):
                      'Calculate Knode')
         box_k_node = gui.widgetBox(box_santa)
         gui.spin(box_k_node, self, 'k_node_s', minv=1, maxv=100,
-                 step=1, label='Select node of distance:')
-        self.k_node = gui.widgetLabel(box_k_node, 'Knode: no data')
+                 step=1, label='Select distance:')
 
         gui.button(box_santa, self, "Calculate", callback=self.calc)
 
@@ -86,26 +85,28 @@ class OWSANTA(OWWidget):
             self.cb_p.clear()
 
     def calc(self):
+        self.progressBarInit()
         c_i = self.proteins.domain.index(self.protein_col)
         node_weights = {}
         for i in range(len(self.proteins)):
-            id = str(int(self.proteins[i][c_i].value))
+            id = self.proteins[i][c_i].value
             node_weights[id] = 1
 
         self.santa = obiSANTA.SANTA(self.network, node_weights)
 
         k_net, auc_k_net = self.santa.k_net()
-        self.k_net.setText('Knet: {}'.format(k_net))
+        self.Outputs.k_net_table.send(self.santa.k_net_table(k_net))
         self.auc_k_net.setText('ACU for Knet: {}'.format(auc_k_net))
+        self.progressBarSet(33)
 
         if self.calc_p_value:
             p_value = self.santa.auk_p_value(self.p_value_iterations)
             self.p_value.setText('P-value: {}'.format(p_value))
-
+        self.progressBarSet(66)
         if self.calc_k_node:
             k_node = self.santa.k_node(self.k_node_s)
-            self.k_node.setText('Knode: {}'.format(k_node[:5]))
-
+            self.Outputs.k_node_table.send(self.santa.k_node_table(k_node))
+        self.progressBarFinished()
 
 def test_main():
     from AnyQt.QtWidgets import QApplication

@@ -273,6 +273,8 @@ class BioGRID(PPIDatabase):
         # assert version matches
         self.db = sqlite3.connect(self.filename)
         self.init_db_index()
+        self._proteins_table = None
+        self._links_table = None
 
     def organisms(self):
         cur = self.db.execute("select distinct organism_interactor \n"
@@ -364,7 +366,7 @@ class BioGRID(PPIDatabase):
         data = [[self.to_type(int, d[0]), self.to_type(int, d[1]), d[2], d[3], d[4], self.to_type(int, d[5])] for d in data]
         data.sort()
 
-        header_values = [list({d[i] for d in data if d[i] is not None}) for i in [2, 3, 4]]
+        header_values = [sorted({d[i] for d in data if d[i] is not None}) for i in [2, 3, 4]]
 
         values = [
             ContinuousVariable(name='BioGRID id', number_of_decimals=0),
@@ -376,7 +378,8 @@ class BioGRID(PPIDatabase):
         ]
         domain = Domain(values)
 
-        return Table(domain, data)
+        self._proteins_table = Table(domain, data)
+        return self._proteins_table
 
     def links_table(self, taxid=None, attr=None, attr_value=None):
         """
@@ -404,7 +407,7 @@ class BioGRID(PPIDatabase):
                  self.to_type(int, d[6]), d[7], self.to_type(float, d[8]), d[9], d[10], d[11], d[12], d[13]] for d in data]
         data.sort()
 
-        header_values = [list({d[i] for d in data if d[i] is not None}) for i in [3, 4, 5, 7, 9, 10, 11, 12, 13]]
+        header_values = [sorted({d[i] for d in data if d[i] is not None}) for i in [3, 4, 5, 7, 9, 10, 11, 12, 13]]
 
         values = [
             ContinuousVariable(name='BioGRID interaction id', number_of_decimals=0),
@@ -424,7 +427,8 @@ class BioGRID(PPIDatabase):
         ]
         domain = Domain(values)
 
-        return Table(domain, data)
+        self._links_table = Table(domain, data)
+        return self._links_table
 
     def extract_network(self, taxid, attr, attr_value):
         """
@@ -437,25 +441,28 @@ class BioGRID(PPIDatabase):
             condition2 = "biogrid_id_interactor in (select biogrid_id_interactor_a from links where " + condition1 + \
                         " union select biogrid_id_interactor_b from links where " + condition1 + ")"
 
-        nodes = self.db.execute("select biogrid_id_interactor, systematic_name_interactor from proteins where organism_interactor=" + taxid +
+        nodes = self.db.execute("select biogrid_id_interactor, official_symbol_interactor from proteins where organism_interactor=" + taxid +
                                 (" and " + condition2 if attr_value else "")).fetchall()
 
-        edges = self.db.execute("select biogrid_id_interactor_a, biogrid_id_interactor_b, score from links " +
-                              "where biogrid_id_interactor_a in " +
-                              "(select biogrid_id_interactor from proteins where organism_interactor=" + taxid + ") " +
-                              "and biogrid_id_interactor_b in " +
-                              "(select biogrid_id_interactor from proteins where organism_interactor=" + taxid + ") " +
-                              ("and " + condition1 if attr_value else "")).fetchall()
+        edges = self.db.execute("select biogrid_interaction_id, p1.official_symbol_interactor, p2.official_symbol_interactor, score " +
+                                "from links join proteins as p1 on biogrid_id_interactor_a=p1.biogrid_id_interactor " +
+                                "join proteins as p2 on biogrid_id_interactor_b=p2.biogrid_id_interactor " +
+                                "where p1.organism_interactor="+taxid+" and p2.organism_interactor="+taxid +
+                                (" and p1." + condition1 if attr_value else "") +
+                                (" and p2." + condition1 if attr_value else "")).fetchall()
+
 
         from orangecontrib import network
 
         graph = network.Graph()
 
-        for n, s in nodes:
-            graph.add_node(n, synonyms=s)
+        for n, s in sorted(nodes):
+            graph.add_node(s)
 
-        for n1, n2, s in edges:
+        for i, n1, n2, s in sorted(edges):
             graph.add_edge(n1, n2, weight=s)
+
+        graph.set_items(items=self._proteins_table)
 
         return graph
 

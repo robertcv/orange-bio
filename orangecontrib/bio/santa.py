@@ -2,8 +2,10 @@ from __future__ import absolute_import
 
 import networkx as nx
 import numpy as np
-import matplotlib.pyplot as plt
 from math import erf, sqrt
+from Orange.base import Table
+from Orange.data.domain import Domain
+from Orange.data.variable import DiscreteVariable, ContinuousVariable
 
 
 class SANTA(object):
@@ -99,7 +101,7 @@ class SANTA(object):
 
         for i in self.dist_matrix:
             if self.all_node_weights[self.w_index[i]] == 0:
-                tmp = [i, 0]
+                tmp = [i, 0, s]
                 for j in self.dist_matrix[i]:
                     if self.dist_matrix[i][j] <= s:
                         tmp[1] += self.all_node_weights[self.w_index[j]] - self.mean_node_weight
@@ -107,4 +109,27 @@ class SANTA(object):
                 k_node.append(tmp)
 
         return sorted(k_node, key=lambda n: -n[1])
+
+    def k_node_table(self, v_list):
+
+        dist_values = {l[0] for l in v_list}
+
+        values = [
+            DiscreteVariable(name='Protein', values=dist_values),
+            ContinuousVariable(name='Knode score'),
+            ContinuousVariable(name='Distance', number_of_decimals=0),
+        ]
+        domain = Domain(values)
+
+        return Table(domain, v_list)
+
+    def k_net_table(self, v_list):
+
+        values = [
+            ContinuousVariable(name='Distance', number_of_decimals=0),
+            ContinuousVariable(name='Knet score'),
+        ]
+        domain = Domain(values)
+
+        return Table(domain, [[n, v] for n, v in enumerate(v_list)])
 
