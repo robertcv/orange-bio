@@ -14,10 +14,11 @@ import sqlite3
 import errno
 import posixpath
 import textwrap
+import numpy as np
 
 from Orange.base import Table
 from Orange.data.domain import Domain
-from Orange.data.variable import DiscreteVariable, ContinuousVariable
+from Orange.data.variable import DiscreteVariable, ContinuousVariable, StringVariable
 
 from io import StringIO, BytesIO
 from collections import defaultdict, namedtuple
@@ -363,20 +364,22 @@ class BioGRID(PPIDatabase):
 
         data = cur.fetchall()
 
-        data = [[self.to_type(int, d[0]), self.to_type(int, d[1]), d[2], d[3], d[4], self.to_type(int, d[5])] for d in data]
+        data = [[self.to_type(int, d[0]), self.to_type(int, d[1]), self.to_type(int, d[5]), d[2], d[3], d[4]] for d in data]
         data.sort()
-
-        header_values = [sorted({d[i] for d in data if d[i] is not None}) for i in [2, 3, 4]]
 
         values = [
             ContinuousVariable(name='BioGRID id', number_of_decimals=0),
             ContinuousVariable(name='Entrez gene id', number_of_decimals=0),
-            DiscreteVariable(name='Systematic name', values=header_values[0]),
-            DiscreteVariable(name='Official symbol', values=header_values[1]),
-            DiscreteVariable(name='Synonyms', values=header_values[2]),
             ContinuousVariable(name='Organism Taxonomy id', number_of_decimals=0),
         ]
-        domain = Domain(values)
+
+        metas = [
+            StringVariable(name='Systematic name'),
+            StringVariable(name='Official symbol'),
+            StringVariable(name='Synonyms'),
+        ]
+
+        domain = Domain(values, metas=metas)
 
         self._proteins_table = Table(domain, data)
         return self._proteins_table
@@ -403,29 +406,30 @@ class BioGRID(PPIDatabase):
 
         data = cur.fetchall()
 
-        data = [[self.to_type(int, d[0]), self.to_type(int, d[1]), self.to_type(int, d[2]), d[3], d[4], d[5],
-                 self.to_type(int, d[6]), d[7], self.to_type(float, d[8]), d[9], d[10], d[11], d[12], d[13]] for d in data]
+        data = [[self.to_type(int, d[0]), self.to_type(int, d[1]), self.to_type(int, d[2]), self.to_type(int, d[6]),
+                 self.to_type(float, d[8]), d[3], d[4], d[5], d[7], d[9], d[10], d[11], d[12], d[13]] for d in data]
         data.sort()
-
-        header_values = [sorted({d[i] for d in data if d[i] is not None}) for i in [3, 4, 5, 7, 9, 10, 11, 12, 13]]
 
         values = [
             ContinuousVariable(name='BioGRID interaction id', number_of_decimals=0),
             ContinuousVariable(name='BioGRID interactor a id', number_of_decimals=0),
             ContinuousVariable(name='BioGRID interactor b id', number_of_decimals=0),
-            DiscreteVariable(name='Experimental system', values=header_values[0]),
-            DiscreteVariable(name='Experimental type', values=header_values[1]),
-            DiscreteVariable(name='Author', values=header_values[2]),
             ContinuousVariable(name='Pubmed id', number_of_decimals=0),
-            DiscreteVariable(name='Throughput', values=header_values[3]),
             ContinuousVariable(name='Score'),
-            DiscreteVariable(name='Modification', values=header_values[4]),
-            DiscreteVariable(name='Phenotypes', values=header_values[5]),
-            DiscreteVariable(name='Qualifications', values=header_values[6]),
-            DiscreteVariable(name='Tags', values=header_values[7]),
-            DiscreteVariable(name='Source database', values=header_values[8]),
         ]
-        domain = Domain(values)
+
+        metas = [
+            StringVariable(name='Experimental system'),
+            StringVariable(name='Experimental type'),
+            StringVariable(name='Author'),
+            StringVariable(name='Throughput'),
+            StringVariable(name='Modification'),
+            StringVariable(name='Phenotypes'),
+            StringVariable(name='Qualifications'),
+            StringVariable(name='Tags'),
+            StringVariable(name='Source database'),
+        ]
+        domain = Domain(values, metas=metas)
 
         self._links_table = Table(domain, data)
         return self._links_table
@@ -449,12 +453,12 @@ class BioGRID(PPIDatabase):
 
         proteins_to_index = {}
         for i, p in enumerate(self._proteins_table.X):
-            graph.add_node(i, synonym=int(p[0]))
+            graph.add_node(i, id=int(p[0]))
             proteins_to_index[int(p[0])] = i
 
         for l in self._links_table.X:
             graph.add_edge(proteins_to_index[int(l[1])], proteins_to_index[int(l[2])],
-                           weight=l[8])
+                           weight=l[4] if not np.isnan(l[4]) else 0)
 
         graph.set_items(items=self._proteins_table)
 
@@ -1268,8 +1272,8 @@ class STRINGDetailed(STRING):
 
         cur = self.db_detailed.execute("select distinct source from aliases" +
                                        (" where protein_id in " + condition if condition else ''))
-        sources = {s[0]: set() for s in cur.fetchall()}
-        source_index = {k: v+1 for v, k in enumerate(sorted(sources.keys()))}
+        sources = [s[0] for s in cur.fetchall()]
+        source_index = {k: v+1 for v, k in enumerate(sorted(sources))}
 
         cur = self.db_detailed.execute("select protein_id, alias, source from aliases" +
                                        (" where protein_id in " + condition if condition else ''))
@@ -1277,17 +1281,15 @@ class STRINGDetailed(STRING):
         data = []
         for a in cur.fetchall():
             data.append(a)
-            sources[a[2]].add(a[1])
             proteins.add(a[0])
         data.sort()
 
         values = [DiscreteVariable(name='Protein', values=sorted(proteins))]
-        for s, v in sorted(sources.items()):
-            values.append(DiscreteVariable(name=s, values=sorted(v)))
+        metas = [StringVariable(name=s) for s in sorted(sources)]
 
-        domain = Domain(values)
+        domain = Domain(values, metas=metas)
 
-        n_values = len(values) - 1
+        n_values = len(metas)
         res = []
         proteins_index = {}
         for v, k in enumerate(sorted(proteins)):
@@ -1347,11 +1349,14 @@ class STRINGDetailed(STRING):
 
         graph = network.Graph()
 
-        for p in self._proteins_table:
-            graph.add_node(p[0].value)
+        proteins_to_index = {}
+        for i, p in enumerate(self._proteins_table):
+            graph.add_node(i, id=p[0].value)
+            proteins_to_index[p[0].value] = i
 
         for l in self._links_table:
-            graph.add_edge(l[0].value, l[1].value, weight=l[2].value)
+            graph.add_edge(proteins_to_index[l[0].value], proteins_to_index[l[1].value],
+                           weight=l[2] if not np.isnan(l[2]) else 0)
 
         graph.set_items(items=self._proteins_table)
 

@@ -16,7 +16,10 @@ def org_to_tax(organisms):
             try:
                 tax_name = obiTaxonomy.other_names(o)
             except:
-                tax_name = o
+                if o == '10633':
+                    tax_name = obiTaxonomy.name('1891767')
+                else:
+                    tax_name = o
         tax_list.append((tax_name, o))
     tax_list = sorted(tax_list)
     org = [o[1] for o in tax_list]

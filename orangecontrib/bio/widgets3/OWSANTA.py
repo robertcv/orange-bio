@@ -27,8 +27,9 @@ class OWSANTA(OWWidget):
         self.santa = None
         self.network = None
         self.proteins = None
+        self.not_matched = 0
 
-        self.protein_col = ''
+        self.protein_col = 0
 
         self.calc_p_value = False
         self.p_value_iterations = 0
@@ -78,7 +79,7 @@ class OWSANTA(OWWidget):
             self.proteins = proteins
             self.proteins_info.setText('Proteins:\n  Number of proteins: {}'.format(len(self.proteins)))
             self.cb_p.clear()
-            self.cb_p.addItems(str(d) for d in self.proteins.domain)
+            self.cb_p.addItems(str(d) for d in list(self.proteins.domain) + list(self.proteins.domain.metas))
         else:
             self.proteins = None
             self.proteins_info.setText('Proteins:\n  No proteins.')
@@ -86,13 +87,16 @@ class OWSANTA(OWWidget):
 
     def calc(self):
         self.progressBarInit()
-        c_i = self.proteins.domain.index(self.protein_col)
-        node_weights = {}
-        for i in range(len(self.proteins)):
-            id = self.proteins[i][c_i].value
-            node_weights[id] = 1
+        self.net_nodes = self.network.items()
+        n_domain = len(self.net_nodes.domain)
+        if self.protein_col < n_domain:
+            self.n_col = self.protein_col
+        else:
+            self.n_col = -self.protein_col + n_domain - 1
 
-        self.santa = obiSANTA.SANTA(self.network, node_weights)
+        self.santa = obiSANTA.SANTA(self.network, self.get_node_weights())
+        self.proteins_info.setText(self.proteins_info.text() +
+                                   '\n  {} proteins could not be matched!'.format(self.not_matched))
 
         k_net, auc_k_net = self.santa.k_net()
         self.Outputs.k_net_table.send(self.santa.k_net_table(k_net))
@@ -105,8 +109,22 @@ class OWSANTA(OWWidget):
         self.progressBarSet(66)
         if self.calc_k_node:
             k_node = self.santa.k_node(self.k_node_s)
+            k_node = [[self.net_nodes[n[0]][self.n_col].value, n[1], n[2]] for n in k_node]
             self.Outputs.k_node_table.send(self.santa.k_node_table(k_node))
         self.progressBarFinished()
+
+    def get_node_weights(self):
+        self.not_matched = 0
+        node_weights = {}
+        for p in self.proteins:
+            for i, row in enumerate(self.net_nodes):
+                if p[self.n_col] in list(row) + list(row.metas):
+                    node_weights[i] = 1
+                    break
+            else:
+                self.not_matched += 1
+        return node_weights
+
 
 def test_main():
     from AnyQt.QtWidgets import QApplication
