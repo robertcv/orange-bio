@@ -29,11 +29,12 @@ def org_to_tax(organisms):
 class OWSTRING(OWWidget):
     name = "STRING data set"
     description = "Returns an Orange network object"
-    icon = "icons/STRING.png"
+    icon = "icons/string.png"
 
     want_main_area = False
 
     ATTRIBUTES = [
+        ('', None),
         ('Combined score', 'score'),
         ('Neighborhood score', 'neighborhood'),
         ('Fusion score', 'fusion'),

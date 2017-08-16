@@ -27,11 +27,12 @@ def org_to_tax(organisms):
 class OWBioGRID(OWWidget):
     name = "BioGRID data set"
     description = "Returns an Orange network object"
-    icon = "icons/BioGRID.png"
+    icon = "icons/biogrid.png"
 
     want_main_area = False
 
     ATTRIBUTES = [
+        ('', None),
         ('Experimental system', 'experimental_system'),
         ('Experimental type', 'experimental_system_type'),
         ('Author', 'author'),
