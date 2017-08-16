@@ -436,25 +436,25 @@ class BioGRID(PPIDatabase):
         to limit the network to a single organism.
         """
 
-        if attr and attr_value:
-            condition = attr + ' in (' + ', '.join(['"' + s + '"' for s in attr_value if s is not None]) + ')'
+        if self._proteins_table is None:
+            self.proteins_table(attr=attr, attr_value=attr_value)
 
-        edges = self.db.execute("select biogrid_interaction_id, p1.official_symbol_interactor, p2.official_symbol_interactor, score " +
-                                "from links join proteins as p1 on biogrid_id_interactor_a=p1.biogrid_id_interactor " +
-                                "join proteins as p2 on biogrid_id_interactor_b=p2.biogrid_id_interactor " +
-                                "where p1.organism_interactor="+taxid+" and p2.organism_interactor="+taxid +
-                                (" and " + condition if attr_value else ""))
+        if self._links_table is None:
+            self.links_table(attr=attr, attr_value=attr_value)
 
 
         from orangecontrib import network
 
         graph = network.Graph()
 
-        for p in self._proteins_table:
-            graph.add_node(p[3].value)
+        proteins_to_index = {}
+        for i, p in enumerate(self._proteins_table.X):
+            graph.add_node(i, synonym=int(p[0]))
+            proteins_to_index[int(p[0])] = i
 
-        for i, n1, n2, s in sorted(edges):
-            graph.add_edge(n1, n2, weight=s)
+        for l in self._links_table.X:
+            graph.add_edge(proteins_to_index[int(l[1])], proteins_to_index[int(l[2])],
+                           weight=l[8])
 
         graph.set_items(items=self._proteins_table)
 
