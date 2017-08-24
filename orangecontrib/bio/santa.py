@@ -92,7 +92,14 @@ class SANTA(object):
 
         return p
 
-    def k_node(self, s):
+    def _k_node(self, s, i):
+        tmp = 0
+        for j in self.dist_matrix[i]:
+            if self.dist_matrix[i][j] <= s:
+                tmp += self.all_node_weights[self.w_index[j]] - self.mean_node_weight
+        return tmp
+
+    def k_node(self):
         self._calc_network_properties()
         self._set_all_node_weights()
 
@@ -101,12 +108,12 @@ class SANTA(object):
 
         for i in self.dist_matrix:
             if self.all_node_weights[self.w_index[i]] == 0:
-                tmp = [i, 0, s]
-                for j in self.dist_matrix[i]:
-                    if self.dist_matrix[i][j] <= s:
-                        tmp[1] += self.all_node_weights[self.w_index[j]] - self.mean_node_weight
-                tmp[1] *= pn
-                k_node.append(tmp)
+
+                tmp = np.zeros(self.max_dist)
+                for s in range(self.max_dist):
+                    tmp[s] = self._k_node(s, i) * pn
+
+                k_node.append((i, np.trapz(tmp)))
 
         return sorted(k_node, key=lambda n: -n[1])
 
@@ -115,9 +122,8 @@ class SANTA(object):
         dist_values = {l[0] for l in v_list}
 
         values = [
-            DiscreteVariable(name='Protein', values=dist_values),
+            DiscreteVariable(name='Node', values=dist_values),
             ContinuousVariable(name='Knode score'),
-            ContinuousVariable(name='Distance', number_of_decimals=0),
         ]
         domain = Domain(values)
 

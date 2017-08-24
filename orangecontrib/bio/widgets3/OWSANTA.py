@@ -35,7 +35,6 @@ class OWSANTA(OWWidget):
         self.p_value_iterations = 0
 
         self.calc_k_node = False
-        self.k_node_s = 0
 
         box_info = gui.widgetBox(self.controlArea, "Info")
         self.network_info = gui.widgetLabel(box_info, 'Network:\n  No network.')
@@ -47,18 +46,15 @@ class OWSANTA(OWWidget):
 
         self.auc_k_net = gui.widgetLabel(box_santa, 'ACU for Knet: no data')
 
+        gui.checkBox(box_santa, self, 'calc_k_node',
+                     'Calculate Knode')
+
         gui.checkBox(box_santa, self, 'calc_p_value',
                      'Calculate p-value for Knet')
         box_p_value = gui.widgetBox(box_santa)
         gui.spin(box_p_value, self, 'p_value_iterations',
                  minv=0, maxv=1000, step=20, label='Number of iterations:')
         self.p_value = gui.widgetLabel(box_p_value, 'P-value: no data')
-
-        gui.checkBox(box_santa, self, 'calc_k_node',
-                     'Calculate Knode')
-        box_k_node = gui.widgetBox(box_santa)
-        gui.spin(box_k_node, self, 'k_node_s', minv=1, maxv=100,
-                 step=1, label='Select distance:')
 
         gui.button(box_santa, self, "Calculate", callback=self.calc)
 
@@ -108,8 +104,7 @@ class OWSANTA(OWWidget):
             self.p_value.setText('P-value: {}'.format(p_value))
         self.progressBarSet(66)
         if self.calc_k_node:
-            k_node = self.santa.k_node(self.k_node_s)
-            k_node = [[self.net_nodes[n[0]][self.n_col].value, n[1], n[2]] for n in k_node]
+            k_node = [[str(self.net_nodes[n[0]][self.n_col].value), n[1]] for n in self.santa.k_node()]
             self.Outputs.k_node_table.send(self.santa.k_node_table(k_node))
         self.progressBarFinished()
 
