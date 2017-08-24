@@ -60,6 +60,7 @@ class OWSTRING(OWWidget):
         self.attribute_id = 0
 
         self.network = None
+        self.auto_commit = False
 
         self.proteins = []
         self.interactions = []
@@ -83,20 +84,24 @@ class OWSTRING(OWWidget):
                  minv=0, maxv=1000, step=10, label='Minimum score:')
 
         gui.button(self.controlArea, self, "Check numbers", callback=self.update_info)
-        gui.button(self.controlArea, self, "Commit", callback=self.commit)
+        gui.auto_commit(self.controlArea, self, 'auto_commit', "Commit", commit=self.commit)
 
     def organism_update_info(self):
         self.string = obiSTRING.STRINGDetailed(taxid=self.organisms[self.organism_id])
         node_n = self.string.number_of_nodes()
         edge_n = self.string.number_of_edges()
-        self.info.setText('Number of nodes: {}\nNumber of edges: {}'.format(node_n, edge_n))
+        self.info.setText('Nodes: {}\nEdges: {}'.format(node_n, edge_n))
+        if self.auto_commit:
+            self.commit()
 
     def update_info(self):
         node_n = self.string.number_of_nodes(attr=self.ATTRIBUTES[self.attribute_id][1],
                                               attr_value=self.condition)
         edge_n = self.string.number_of_edges(attr=self.ATTRIBUTES[self.attribute_id][1],
                                               attr_value=self.condition)
-        self.info.setText('Number of nodes: {}\nNumber of edges: {}'.format(node_n, edge_n))
+        self.info.setText('Nodes: {}\nEdges: {}'.format(node_n, edge_n))
+        if self.auto_commit:
+            self.commit()
 
     def commit(self):
         self.progressBarInit()

@@ -37,11 +37,11 @@ class OWSANTA(OWWidget):
         self.calc_k_node = False
 
         box_info = gui.widgetBox(self.controlArea, "Info")
-        self.network_info = gui.widgetLabel(box_info, 'Network:\n  No network.')
-        self.proteins_info = gui.widgetLabel(box_info, 'Proteins:\n  No proteins.')
+        self.network_info = gui.widgetLabel(box_info, 'No network!')
+        self.proteins_info = gui.widgetLabel(box_info, 'No observed nodes!')
 
         box_santa = gui.widgetBox(self.controlArea, "SANTA")
-        gui.widgetLabel(box_santa, 'Select proteins id column.')
+        gui.widgetLabel(box_santa, 'Select identifying column.')
         self.cb_p = gui.comboBox(box_santa, self, "protein_col")
 
         self.auc_k_net = gui.widgetLabel(box_santa, 'ACU for Knet: no data')
@@ -62,23 +62,23 @@ class OWSANTA(OWWidget):
     def set_graph(self, graph):
         if graph is not None:
             self.network = graph
-            self.network_info.setText('Network:\n  Number of nodes: {}\n  Number of edges: {}'.format(
+            self.network_info.setText('Nodes: {}\nEdges: {}'.format(
                 self.network.number_of_nodes(),
                 self.network.number_of_edges()))
         else:
             self.network = None
-            self.network_info.setText('Network:\n  No network.')
+            self.network_info.setText('No network!')
 
     @Inputs.proteins
     def set_proteins(self, proteins):
         if proteins is not None:
             self.proteins = proteins
-            self.proteins_info.setText('Proteins:\n  Number of proteins: {}'.format(len(self.proteins)))
+            self.proteins_info.setText('Observed nodes: {}'.format(len(self.proteins)))
             self.cb_p.clear()
             self.cb_p.addItems(str(d) for d in list(self.proteins.domain) + list(self.proteins.domain.metas))
         else:
             self.proteins = None
-            self.proteins_info.setText('Proteins:\n  No proteins.')
+            self.proteins_info.setText('No observed nodes!')
             self.cb_p.clear()
 
     def calc(self):
@@ -91,21 +91,26 @@ class OWSANTA(OWWidget):
             self.n_col = -self.protein_col + n_domain - 1
 
         self.santa = obiSANTA.SANTA(self.network, self.get_node_weights())
-        self.proteins_info.setText(self.proteins_info.text() +
-                                   '\n  {} proteins could not be matched!'.format(self.not_matched))
+
+        text = self.proteins_info.text().split('\n')
+        if len(text) == 4 and self.not_matched:
+            text[3] = 'Nodes not matching: {}'.format(self.not_matched)
+            self.proteins_info.setText('\n'.join(text))
 
         k_net, auc_k_net = self.santa.k_net()
         self.Outputs.k_net_table.send(self.santa.k_net_table(k_net))
         self.auc_k_net.setText('ACU for Knet: {}'.format(auc_k_net))
         self.progressBarSet(33)
 
-        if self.calc_p_value:
-            p_value = self.santa.auk_p_value(self.p_value_iterations)
-            self.p_value.setText('P-value: {}'.format(p_value))
-        self.progressBarSet(66)
         if self.calc_k_node:
             k_node = [[str(self.net_nodes[n[0]][self.n_col].value), n[1]] for n in self.santa.k_node()]
             self.Outputs.k_node_table.send(self.santa.k_node_table(k_node))
+
+        self.progressBarSet(66)
+        if self.calc_p_value:
+            p_value = self.santa.auk_p_value(self.p_value_iterations)
+            self.p_value.setText('P-value: {}'.format(p_value))
+
         self.progressBarFinished()
 
     def get_node_weights(self):

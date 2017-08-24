@@ -66,6 +66,8 @@ class OWBioGRID(OWWidget):
         self.proteins = []
         self.interactions = []
 
+        self.auto_commit = False
+
         box1 = gui.widgetBox(self.controlArea, "Info")
         self.info = gui.widgetLabel(box1, 'No database subset yet chosen.')
 
@@ -85,32 +87,32 @@ class OWBioGRID(OWWidget):
                                           selectionMode=QListWidget.MultiSelection)
         self.conditions_box.itemClicked.connect(self.attribute_update_info)
 
-        gui.button(self.controlArea, self, "Commit", callback=self.commit)
+        gui.auto_commit(self.controlArea, self, 'auto_commit', "Commit", commit=self.commit, callback=self.commit)
 
     def organism_update_info(self):
-        self.info.setText('Processing ...')
         self.conditions_box.clear()
         node_n = self.biogrid.number_of_nodes(taxid=self.organisms[self.organism_id])
         edge_n = self.biogrid.number_of_edges(taxid=self.organisms[self.organism_id])
-        self.info.setText('Number of nodes: {}\nNumber of edges: {}'.format(node_n, edge_n))
+        self.info.setText('Nodes: {}\nEdges: {}'.format(node_n, edge_n))
+        if self.auto_commit:
+            self.commit()
 
     def attribute_update(self):
-        self.conditions_box.clear()
-        self.conditions_box.addItem('Processing ...')
         self.conditions = self.biogrid.attribute_unique_value(self.ATTRIBUTES[self.attribute_id][1],
                                                               taxid=self.organisms[self.organism_id])
         self.conditions_box.clear()
         self.conditions_box.addItems(self.conditions)
 
     def attribute_update_info(self):
-        self.info.setText('Processing ...')
         node_n = self.biogrid.number_of_nodes(taxid=self.organisms[self.organism_id],
                                               attr=self.ATTRIBUTES[self.attribute_id][1],
                                               attr_value=[self.conditions[i] for i in self.conditions_index])
         edge_n = self.biogrid.number_of_edges(taxid=self.organisms[self.organism_id],
                                               attr=self.ATTRIBUTES[self.attribute_id][1],
                                               attr_value=[self.conditions[i] for i in self.conditions_index])
-        self.info.setText('Number of nodes: {}\nNumber of edges: {}'.format(node_n, edge_n))
+        self.info.setText('Nodes: {}\nEdges: {}'.format(node_n, edge_n))
+        if self.auto_commit:
+            self.commit()
 
     def commit(self):
         self.progressBarInit()

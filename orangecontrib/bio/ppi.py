@@ -332,6 +332,9 @@ class BioGRID(PPIDatabase):
         If `taxid` is not None limit the results to ids from this organism
         only.
         """
+        if attr is None:
+            return []
+
         if taxid is None:
             cur = self.db.execute("select distinct " + attr + " from links")
         else:
