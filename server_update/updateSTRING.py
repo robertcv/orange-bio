@@ -5,7 +5,7 @@ import gzip
 from server_update import *
 from server_update.tests.test_STRING import StringTest
 from orangecontrib.bio import ppi, taxonomy
-from urllib.request import build_opener
+from urllib.request import urlopen
 
 DOMAIN = 'PPI'
 
@@ -19,7 +19,7 @@ create_folder(downloads)
 
 
 def get_version():
-    html = build_opener().open('http://string.embl.de/cgi/download.pl').read().decode()
+    html = urlopen('https://string-db.org/cgi/download.pl').read().decode()
     ver = re.findall("protein\.links\.(v.*?)\.txt\.gz", html, re.DOTALL)[0]
     return ver
 

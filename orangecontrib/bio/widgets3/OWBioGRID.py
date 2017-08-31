@@ -28,7 +28,7 @@ def org_to_tax(organisms):
 
 
 class OWBioGRID(OWWidget):
-    name = "BioGRID data set"
+    name = "BioGRID database"
     description = "Returns an Orange network object"
     icon = "icons/biogrid.png"
 

@@ -769,7 +769,7 @@ class STRING(PPIDatabase):
     """
     DOMAIN = "PPI"
     FILENAME = "string.protein.{taxid}.sqlite"
-    VERSION = "3.0"
+    VERSION = "10.5"
 
     # Mapping from taxonomy.common_taxids() to taxids in STRING.
 
@@ -953,6 +953,7 @@ class STRING(PPIDatabase):
 
     @classmethod
     def init_db(cls, version, taxid, cache_dir=None, dbfilename=None):
+        print(version)
         if cache_dir is None:
             cache_dir = serverfiles.localpath(cls.DOMAIN)
 
@@ -1008,6 +1009,7 @@ class STRING(PPIDatabase):
         filesize = st_size(links_filename)
 
         con = sqlite3.connect(dbfilename)
+        print(dbfilename)
 
         with con:
             cls.clear_db(con)
@@ -1045,21 +1047,15 @@ class STRING(PPIDatabase):
 
             actions_file.readline()  # read header line
 
-            progress = ConsoleProgressBar("Processing actions:")
             reader = csv.reader(actions_file, delimiter="\t")
 
             def read_actions(reader):
-                for i, (p1, p2, mode, action, a_is_acting, score) in \
-                        enumerate(reader):
+                for p1, p2, mode, action, _, a_is_acting, score in reader:
                     yield p1, p2, mode, action, int(score)
-
-                    if i % 10000 == 0:
-                        progress(100.0 * actions_fileobj.tell() / filesize)
 
             con.executemany("INSERT INTO actions VALUES (?, ?, ?, ?, ?)",
                             read_actions(reader))
 
-            progress.finish()
 
             filesize = st_size(aliases_filename)
             aliases_file.readline()  # read header line

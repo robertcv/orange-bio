@@ -27,7 +27,7 @@ def org_to_tax(organisms):
 
 
 class OWSTRING(OWWidget):
-    name = "STRING data set"
+    name = "STRING database"
     description = "Returns an Orange network object"
     icon = "icons/string.png"
 
