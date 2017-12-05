@@ -5,7 +5,6 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 g = nx.Graph()
-g.nodes_iter()
 
 nodes = [str(i) for i in range(1,13)]
 edges = [('1','2'), ('1','3'), ('1','4'), ('2','3'), ('2','4'), ('3','4'), ('1','5'), ('5','6'), ('2','7'),
@@ -29,7 +28,7 @@ print('AUK for Knet: ', auc_k_net)
 p_value = test_santa1.auk_p_value(1000)
 print('P-value for Knet: ', p_value)
 
-k_node = test_santa1.k_node(1)
+k_node = test_santa1.k_node(5)
 print('Knode:')
 for n in k_node:
     print(n)
@@ -45,7 +44,7 @@ print('AUK for Knet: ', auc_k_net)
 p_value = test_santa2.auk_p_value(1000)
 print('P-value for Knet: ', p_value)
 
-k_node = test_santa2.k_node(1)
+k_node = test_santa2.k_node(5)
 print('Knode:')
 for n in k_node:
     print(n)

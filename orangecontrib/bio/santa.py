@@ -24,13 +24,13 @@ class SANTA(object):
 
     def _calc_network_properties(self):
         if self.dist_matrix is None:
-            self.dist_matrix = nx.all_pairs_shortest_path_length(self.network)
+            self.dist_matrix = dict(nx.all_pairs_shortest_path_length(self.network))
 
         if self.max_dist is None:
             self.max_dist = max(max(n.values()) for n in self.dist_matrix.values())
 
         if self.nodes is None:
-            self.nodes = self.network.nodes()
+            self.nodes = list(self.network.nodes())
 
         if self.number_of_nodes is None:
             self.number_of_nodes = self.network.number_of_nodes()
@@ -99,7 +99,7 @@ class SANTA(object):
                 tmp += self.all_node_weights[self.w_index[j]] - self.mean_node_weight
         return tmp
 
-    def k_node(self):
+    def k_node(self, n):
         self._calc_network_properties()
         self._set_all_node_weights()
 
@@ -115,7 +115,7 @@ class SANTA(object):
 
                 k_node.append((i, np.trapz(tmp)))
 
-        return sorted(k_node, key=lambda n: -n[1])
+        return sorted(k_node, key=lambda n: -n[1])[:n]
 
     def k_node_table(self, v_list):
 
